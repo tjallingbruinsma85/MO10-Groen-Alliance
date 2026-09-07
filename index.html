@@ -1024,6 +1024,7 @@ function renderRoster(){
   box.innerHTML=html||'<div class="roster-sub">Nog geen team ingelezen.</div>';
 }
 function findCol(headers,candidates){for(var ci=0;ci<candidates.length;ci++){var c=candidates[ci].toLowerCase().replace(/\s+/g,"");for(var hi=0;hi<headers.length;hi++){if(headers[hi]&&headers[hi].toLowerCase().replace(/\s+/g,"").indexOf(c)>=0)return hi;}}return -1;}
+function cellText(row,idx){if(idx<0||!row)return"";var v=row[idx];if(v===null||v===undefined)return"";return String(v).trim();}
 function fmtTime(val){if(!val)return"";if(typeof val==="string")return val;if(val instanceof Date)return String(val.getHours()).padStart(2,"0")+":"+String(val.getMinutes()).padStart(2,"0");if(typeof val==="number"){var tm=Math.round(val*24*60);return String(Math.floor(tm/60)).padStart(2,"0")+":"+String(tm%60).padStart(2,"0");}return String(val);}
 function parseExcel(buf){
   var wb=XLSX.read(buf,{type:"array",cellDates:true});
@@ -1063,6 +1064,10 @@ function parseExcel(buf){
   var iTg=findCol(headers,["tegenstander"]),iTU=findCol(headers,["thuis/uit","thuisout"]);
   var iV=findCol(headers,["veld"]),iTe=findCol(headers,["tenue"]);
   var iF=findCol(headers,["fluiten ouder","fluitenouder","fluiten"]),iK=findCol(headers,["keeper"]),iAc=findCol(headers,["aanvoerder","captain"]),iFr=findCol(headers,["fruit"]);
+  // In het huidige schema staat Aanvoerder vast in kolom S (0-based index 18).
+  // Gebruik die positie als fallback wanneer Excel/SheetJS de koptekst niet
+  // exact teruggeeft (bijvoorbeeld door opmaak of een afwijkende koptekst).
+  if(iAc<0 && headers.length>18 && headers[18]!==undefined){iAc=18;}
   var iR1=findCol(headers,["rijden 1","rijden1"]),iR2=findCol(headers,["rijden 2","rijden2"]),iR3=findCol(headers,["rijden 3","rijden3"]);
   var iA=findCol(headers,["afgemeld"]),iB=findCol(headers,["bijzonderheden"]);
   var matches=[];
@@ -1085,7 +1090,7 @@ function parseExcel(buf){
       tijd_verzamelen:(tv&&String(tv).toUpperCase()!=="N.N.B.")?fmtTime(tv):"",
       locatie:loc,plaats_verzamelen:pv,
       fluiten:(iF>=0&&row[iF])?String(row[iF]).trim():"",keeper:(iK>=0&&row[iK])?String(row[iK]).trim():"",
-      aanvoerder:(iAc>=0&&row[iAc])?String(row[iAc]).trim():"",fruit:(iFr>=0&&row[iFr])?String(row[iFr]).trim():"",rijden:rijden,
+      aanvoerder:cellText(row,iAc),fruit:cellText(row,iFr),rijden:rijden,
       afgemeld:(iA>=0&&row[iA])?String(row[iA]).trim():"",bijzonderheden:(iB>=0&&row[iB])?String(row[iB]).trim():"",
       tenue:(iTe>=0&&row[iTe])?String(row[iTe]).trim():""});
   }
@@ -1133,10 +1138,12 @@ function handleFile(file){
       pendingMatches=result.matches;
       if(result.teamnaam)updateTeamNaam(result.teamnaam);
       if(result.teamleden&&result.teamleden.length>0)updateSpelersFromExcel(result.teamleden,result.coaches||[]);
+      var aanvoerdersIngelezen=result.matches.filter(function(m){return m.aanvoerder;}).length;
       msg.textContent=result.matches.length+" wedstrijden geladen"
         +(result.teamnaam?" · "+result.teamnaam:"")
         +(result.teamleden&&result.teamleden.length?" · "+result.teamleden.length+" speelsters":"")
-        +(result.coaches&&result.coaches.length?" · "+result.coaches.length+" coaches":"");
+        +(result.coaches&&result.coaches.length?" · "+result.coaches.length+" coaches":"")
+        +(aanvoerdersIngelezen?" · "+aanvoerdersIngelezen+" aanvoerders":"");
       msg.className="status-msg ok";btn.classList.add("visible");
       document.getElementById("download-btn").style.display="block";
     }catch(err){msg.textContent="Fout: "+err.message;msg.className="status-msg err";}
