@@ -614,21 +614,16 @@ function makeRow(icon,label,value,extraClass){
 function makeCard(m){
   var isThuis=m.type==="Thuis",color=isThuis?"#007856":"#F53D3D",label=isThuis?"Thuis":"Uit";
   var rows="";
-  if(isThuis){if(m.tijd_verzamelen)rows+=makeRow("&#127968;","Verzamelen",m.tijd_verzamelen);}
-  else{
-    var pv=m.plaats_verzamelen||"";
-    var vt=(m.tijd_verzamelen&&m.tijd_verzamelen!=="N.N.B.")?m.tijd_verzamelen+(pv?" &middot; "+pv:""):(pv?pv+" (check app)":"check app");
-    rows+=makeRow("&#128205;","Vertrek",vt);
-  }
+  // Altijd exact dezelfde zeven informatievelden, in deze volgorde.
+  // De opmaak/CSS van de bestaande kaarten blijft ongewijzigd.
+  var verzamel=(m.tijd_verzamelen||"")+(m.plaats_verzamelen?((m.tijd_verzamelen?" &middot; ":"")+m.plaats_verzamelen):"");
+  rows+=makeRow("&#127968;","Verzamelen",verzamel||"—");
   rows+=makeRow("&#9201;","Wedstrijd",m.tijd_wedstrijd||"N.N.B.");
-  if(m.fluiten) rows+='<div class="info-row"><div class="info-label"><span class="label-icon label-whistle"></span><span class="label-text">Fluiten</span></div><div class="info-value">'+m.fluiten+'</div></div>';
-  if(m.keeper)  rows+=makeRow("&#129349;","Keepen",m.keeper);
-  if(m.aanvoerder) rows+=makeRow("&#128084;","Aanvoerder",m.aanvoerder);
-  if(m.fruit)   rows+=makeRow("&#127822;","Fruit",m.fruit);
-  if(m.rijden&&m.rijden.length>0)rows+=makeRow("&#128663;","Rijden",m.rijden.join(" &middot; "));
-  if(m.tenue)   rows+=makeRow("&#128085;","Tenue",m.tenue);
-  if(m.afgemeld)rows+='<div class="info-row"><div class="info-label"><span class="label-icon">&#10060;</span><span class="label-text">Afgemeld</span></div><div class="info-value" style="color:#888;font-weight:600">'+m.afgemeld+'</div></div>';
-  if(m.bijzonderheden)rows+=makeRow("&#9888;","Let op",m.bijzonderheden,"info-row-note");
+  rows+='<div class="info-row"><div class="info-label"><span class="label-icon label-whistle"></span><span class="label-text">Fluiten</span></div><div class="info-value">'+(m.fluiten||"—")+'</div></div>';
+  rows+=makeRow("&#129349;","Keepen",m.keeper||"—");
+  rows+=makeRow("&#128084;","Aanvoerder",m.aanvoerder||"—");
+  rows+=makeRow("&#127822;","Fruit",m.fruit||"—");
+  rows+=makeRow("&#128085;","Tenue",m.tenue||"—");
   return'<div class="card"><div class="card-left" style="background:'+color+'"><div class="date-num">'+m.dag+'</div><div class="date-mon">'+m.maand.toUpperCase()+'</div><div class="ha-badge">'+(isThuis?"&#127968;":"&#128663;")+" "+label+'</div></div><div class="card-right"><div class="opponent">'+wedstrijdTitel(m,false)+'</div><div class="location">&#128205; '+m.locatie+'</div><div class="info-table">'+rows+'</div></div></div>';
 }
 
@@ -1064,10 +1059,13 @@ function parseExcel(buf){
   var iTg=findCol(headers,["tegenstander"]),iTU=findCol(headers,["thuis/uit","thuisout"]);
   var iV=findCol(headers,["veld"]),iTe=findCol(headers,["tenue"]);
   var iF=findCol(headers,["fluiten ouder","fluitenouder","fluiten"]),iK=findCol(headers,["keeper"]),iAc=findCol(headers,["aanvoerder","captain"]),iFr=findCol(headers,["fruit"]);
-  // In het huidige schema staat Aanvoerder vast in kolom S (0-based index 18).
-  // Gebruik die positie als fallback wanneer Excel/SheetJS de koptekst niet
-  // exact teruggeeft (bijvoorbeeld door opmaak of een afwijkende koptekst).
-  if(iAc<0 && headers.length>18 && headers[18]!==undefined){iAc=18;}
+  // Dit Excel-schema heeft vaste kolommen: K=Fluiten, L=Keeper, M=Fruit, J=Tenue, S=Aanvoerder.
+  // Gebruik de gevonden koptekst waar mogelijk, maar val altijd terug op deze vaste posities.
+  if(iF<0) iF=10;
+  if(iK<0) iK=11;
+  if(iFr<0) iFr=12;
+  if(iAc<0) iAc=18;
+  if(iTe<0) iTe=9;
   var iR1=findCol(headers,["rijden 1","rijden1"]),iR2=findCol(headers,["rijden 2","rijden2"]),iR3=findCol(headers,["rijden 3","rijden3"]);
   var iA=findCol(headers,["afgemeld"]),iB=findCol(headers,["bijzonderheden"]);
   var matches=[];
